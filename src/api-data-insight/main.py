@@ -1,10 +1,11 @@
 from api_fetcher import DomotzAPICaller
 from api_fetcher.settings import DomotzAPISettings, BASE_URLS
+from api_fetcher.cache.memory import InMemoryCache
 from dotenv import dotenv_values
 
 env = dotenv_values("/workspaces/public-api-insight/.env")
 api_caller = DomotzAPICaller(
-    DomotzAPISettings(api_key=env["API_KEY_EU"], base_url=BASE_URLS["EU"])
+    DomotzAPISettings(api_key=env["API_KEY_EU"], base_url=BASE_URLS["EU"]), cache = InMemoryCache()
 )
 api_caller.clear_cache()
 agents = await api_caller.get_agents_list()
