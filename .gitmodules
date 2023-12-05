@@ -1,0 +1,6 @@
+[submodule "submodules/public-api-caller"]
+	path = submodules/public-api-caller
+	url = git@github.com:domenicodigangi/public-api-caller.git
+[submodule "submodules/api-fetcher"]
+	path = submodules/api-fetcher
+	url = git@github.com:domenicodigangi/api-fetcher.git
