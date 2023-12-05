@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "api-fetcher"
+name = "api-data-insight"
 version = "0.1.0"
 description = "A package to fetch data from domotz's public api"
 authors = ["Domenico Di Gangi <digangidomenico@gmail.com>"]
@@ -12,6 +12,8 @@ pydantic-settings = "*"
 httpx = "^0.25.0"
 aioredis = "^2.0.1"
 redis = "^5.0.1"
+api-fetcher = { path = "./submodules/api-fetcher", develop = true }
+pandas = "^1.5.3"
 
 [build-system]
 requires = ["poetry-core"]
