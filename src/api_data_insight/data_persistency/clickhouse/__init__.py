@@ -8,8 +8,6 @@ from clickhouse_driver import Client
 from dotenv import dotenv_values
 from httpx import delete
 
-env = dotenv_values("/workspaces/public-api-insight/.env")
-
 
 class ClickHouseTable:
     _pandas_sql_dtype_mapping = {
@@ -44,15 +42,44 @@ class ClickHouseTable:
         )
         return bool(result)
 
+    def create_table(self, df: pd.DataFrame):
+        if self.table_exists():
+            raise ValueError("Table already exists. Please drop the table first.")
+
+        columns = []
+        for column_name, dtype in df.dtypes.items():
+            clickhouse_type = self._pandas_sql_dtype_mapping.get(str(dtype))
+            column_name = str(column_name).replace(".", "_")
+            if clickhouse_type:
+                columns.append(f"{column_name} Nullable({clickhouse_type})")
+            else:
+                raise ValueError(
+                    f"Unsupported dtype: {dtype} for column: {column_name}"
+                )
+
+        create_table_query = f"CREATE TABLE {self.database}.{self.table_name} ({', '.join(columns)}) ENGINE = MergeTree() ORDER BY tuple()"
+        self.client.execute(create_table_query)
+
+    def drop_table(self):
+        if not self.table_exists():
+            raise ValueError("Table does not exist.")
+
+        self.client.execute(f"DROP TABLE {self.database}.{self.table_name}")
+
+    def get_data(self) -> pd.DataFrame:
+        if not self.table_exists():
+            raise ValueError("Table does not exist.")
+
+        query = f"SELECT * FROM {self.database}.{self.table_name}"
+        return pd.DataFrame(self.client.execute(query))
+
 
 class ClickhouseDBTables:
     _instance = None
     _TABLES: dict[str, ClickHouseTable] = {}
 
-    def __init__(self, host: str, port: int, user: str, password: str, database: str):
-        self.client = Client(
-            host=host, port=port, user=user, password=password, database=database
-        )
+    def __init__(self, host: str, port: int, database: str):
+        self.client = Client(host=host, port=port, database=database)
 
     @classmethod
     def get_instance(cls, *args, **kwargs) -> Self:

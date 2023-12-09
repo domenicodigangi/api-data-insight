@@ -5,7 +5,7 @@ description = "A package to fetch data from domotz's public api"
 authors = ["Domenico Di Gangi <digangidomenico@gmail.com>"]
 packages = [
     {include = "api_data_insight", from="src"}, 
-    { include = "./submodules/api-fetcher" }
+    {include = "api_fetcher", from = "./submodules/api-fetcher/src"},
     ]
 
 
