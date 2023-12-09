@@ -3,18 +3,21 @@ name = "api-data-insight"
 version = "0.1.0"
 description = "A package to fetch data from domotz's public api"
 authors = ["Domenico Di Gangi <digangidomenico@gmail.com>"]
-packages = [{include = "api-data-insight", from="src"}]
+packages = [
+    {include = "api_data_insight", from="src"}, 
+    { include = "./submodules/api-fetcher" }
+    ]
+
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.12"
 pydantic = "*"
 pydantic-settings = "*"
 httpx = "^0.25.0"
-aioredis = "^2.0.1"
 redis = "^5.0.1"
-api-fetcher = { path = "./submodules/api-fetcher", develop = true }
 pandas = "^1.5.3"
 cachetools = "^5.3.2"
+clickhouse-driver = "^0.2.6"
 
 [build-system]
 requires = ["poetry-core"]
