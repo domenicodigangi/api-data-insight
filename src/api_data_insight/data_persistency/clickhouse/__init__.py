@@ -1,12 +1,7 @@
 from typing import Self
 
 import pandas as pd
-from api_fetcher import DomotzAPIDataFetcher
-from api_fetcher.cache.memory import InMemoryCache
-from api_fetcher.settings import BASE_URLS, DomotzAPISettings
-from clickhouse_driver import Client
-from dotenv import dotenv_values
-from httpx import delete
+from aioch import Client
 
 
 class ClickHouseTable:
@@ -23,27 +18,32 @@ class ClickHouseTable:
         self.database = database
         self.column_definitions: list[str] = []
 
-    def insert_data(self, df_data: pd.DataFrame):
-        if not self.table_exists():
+    async def safe_insert_data(self, df_data: pd.DataFrame):
+        if not await self.table_exists():
+            await self.create_table(df_data)
+        await self.insert_data(df_data)
+
+    async def insert_data(self, df_data: pd.DataFrame):
+        if not await self.table_exists():
             raise ValueError("Table does not exist. Please create the table first.")
 
         df_data = df_data.where(pd.notnull(df_data), None)
         data_tuples = list(df_data.itertuples(index=False, name=None))
 
-        self.client.execute(
+        await self.client.execute(
             f"INSERT INTO {self.database}.{self.table_name} VALUES",
             data_tuples,
             types_check=True,
         )
 
-    def table_exists(self) -> bool:
-        result = self.client.execute(
+    async def table_exists(self) -> bool:
+        result = await self.client.execute(
             f"SELECT 1 FROM system.tables WHERE database = '{self.database}' AND name = '{self.table_name}'"
         )
         return bool(result)
 
-    def create_table(self, df: pd.DataFrame):
-        if self.table_exists():
+    async def create_table(self, df: pd.DataFrame):
+        if await self.table_exists():
             raise ValueError("Table already exists. Please drop the table first.")
 
         columns = []
@@ -58,20 +58,20 @@ class ClickHouseTable:
                 )
 
         create_table_query = f"CREATE TABLE {self.database}.{self.table_name} ({', '.join(columns)}) ENGINE = MergeTree() ORDER BY tuple()"
-        self.client.execute(create_table_query)
+        await self.client.execute(create_table_query)
 
-    def drop_table(self):
-        if not self.table_exists():
+    async def drop_table(self):
+        if not await self.table_exists():
             raise ValueError("Table does not exist.")
 
-        self.client.execute(f"DROP TABLE {self.database}.{self.table_name}")
+        await self.client.execute(f"DROP TABLE {self.database}.{self.table_name}")
 
-    def get_data(self) -> pd.DataFrame:
-        if not self.table_exists():
+    async def get_data(self) -> pd.DataFrame:
+        if not await self.table_exists():
             raise ValueError("Table does not exist.")
 
         query = f"SELECT * FROM {self.database}.{self.table_name}"
-        return pd.DataFrame(self.client.execute(query))
+        return pd.DataFrame(await self.client.execute(query))
 
 
 class ClickhouseDBTables:
