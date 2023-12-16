@@ -1,38 +1,38 @@
+from logging import getLogger
+from textwrap import fill
 from typing import Self
 
 import pandas as pd
+import polars as pl
 from aioch import Client
+
+logger = getLogger(__name__)
 
 
 class ClickHouseTable:
-    _pandas_sql_dtype_mapping = {
-        "int64": "Int64",
-        "float64": "Float64",
-        "object": "String",
-        "bool": "Boolean",
-    }
-
     def __init__(self, table_name: str, client: Client, database: str = "default"):
         self.table_name = table_name
         self.client = client
         self.database = database
         self.column_definitions: list[str] = []
 
-    async def safe_insert_data(self, df_data: pd.DataFrame):
+    async def safe_insert_data(self, df_data: pl.DataFrame):
         if not await self.table_exists():
             await self.create_table(df_data)
         await self.insert_data(df_data)
 
-    async def insert_data(self, df_data: pd.DataFrame):
+    async def insert_data(self, df: pl.DataFrame):
         if not await self.table_exists():
             raise ValueError("Table does not exist. Please create the table first.")
 
-        df_data = df_data.where(pd.notnull(df_data), None)
-        data_tuples = list(df_data.itertuples(index=False, name=None))
+        for column_name, dtype in zip(df.columns, df.dtypes):
+            if "List" in str(dtype):
+                fill_value = []
+                df = df.with_columns(pl.col(column_name).fill_null(value=fill_value))
 
         await self.client.execute(
             f"INSERT INTO {self.database}.{self.table_name} VALUES",
-            data_tuples,
+            df.rows(),
             types_check=True,
         )
 
@@ -42,36 +42,43 @@ class ClickHouseTable:
         )
         return bool(result)
 
-    async def create_table(self, df: pd.DataFrame):
+    async def create_table(self, df: pl.DataFrame):
         if await self.table_exists():
-            raise ValueError("Table already exists. Please drop the table first.")
+            logger.info("Table already exists. Skipping creation.")
+        else:
+            await self.unsafe_create_table(df)
 
-        columns = []
-        for column_name, dtype in df.dtypes.items():
-            clickhouse_type = self._pandas_sql_dtype_mapping.get(str(dtype))
+    async def unsafe_create_table(self, df: pl.DataFrame):
+        self.init_df = df.clone()
+        self.column_definitions = []
+        for column_name, dtype in zip(df.columns, df.dtypes):
+            clickhouse_type = str(dtype)
+            clickhouse_type = clickhouse_type.replace("List", "Array")
+            clickhouse_type = clickhouse_type.replace("Utf8", "String")
+
             column_name = str(column_name).replace(".", "_")
-            if clickhouse_type:
-                columns.append(f"{column_name} Nullable({clickhouse_type})")
-            else:
-                raise ValueError(
-                    f"Unsupported dtype: {dtype} for column: {column_name}"
-                )
+            if "Array" not in clickhouse_type:
+                clickhouse_type = f"Nullable({clickhouse_type})"
 
-        create_table_query = f"CREATE TABLE {self.database}.{self.table_name} ({', '.join(columns)}) ENGINE = MergeTree() ORDER BY tuple()"
+            self.column_definitions.append(f"{column_name} {clickhouse_type}")
+
+        create_table_query = f"CREATE TABLE {self.database}.{self.table_name} ({', '.join(self.column_definitions)}) ENGINE = MergeTree() ORDER BY tuple()"
         await self.client.execute(create_table_query)
 
     async def drop_table(self):
         if not await self.table_exists():
-            raise ValueError("Table does not exist.")
+            logger.warning("Table does not exist.")
+        else:
+            await self.client.execute(f"DROP TABLE {self.database}.{self.table_name}")
 
-        await self.client.execute(f"DROP TABLE {self.database}.{self.table_name}")
-
-    async def get_data(self) -> pd.DataFrame:
+    async def get_data(self) -> pl.DataFrame:
         if not await self.table_exists():
             raise ValueError("Table does not exist.")
 
         query = f"SELECT * FROM {self.database}.{self.table_name}"
-        return pd.DataFrame(await self.client.execute(query))
+        return pl.DataFrame(
+            await self.client.execute(query), schema=self.init_df.schema
+        )
 
 
 class ClickhouseDBTables:
@@ -91,3 +98,8 @@ class ClickhouseDBTables:
         if table_name not in self._TABLES:
             self._TABLES[table_name] = ClickHouseTable(table_name, self.client)
         return self._TABLES[table_name]
+
+    async def drop_all_tables(self):
+        for table_name in self._TABLES:
+            await self._TABLES[table_name].drop_table()
+        self._TABLES = {}
