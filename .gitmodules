@@ -2,3 +2,6 @@
 	path = submodules/api-fetcher
 	url = git@github.com:domenicodigangi/api-fetcher.git
 	branch = main
+[submodule "submodules/superset"]
+	path = submodules/superset
+	url = https://github.com/apache/superset.git
