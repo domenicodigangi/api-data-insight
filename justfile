@@ -13,11 +13,12 @@ start-ch-client:
     cd /home/ddg/clickhouse && ./clickhouse client 
 
 
-
 build-superset:
     docker build -t superset:local ./superset
 
 start-superset:
     docker run -d --network host  --name superset -p 8080:8080   superset:local
 
-
+run-flet-app:
+    cd /workspaces/public-api-insight/src/web_app && \
+    python main.py

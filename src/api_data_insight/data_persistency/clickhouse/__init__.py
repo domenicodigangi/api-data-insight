@@ -1,10 +1,9 @@
 from logging import getLogger
-from textwrap import fill
 from typing import Self
 
-import pandas as pd
 import polars as pl
 from aioch import Client
+from api_fetcher import DomotzAPIDataFetcher
 
 logger = getLogger(__name__)
 
@@ -103,3 +102,16 @@ class ClickhouseDBTables:
         for table_name in self._TABLES:
             await self._TABLES[table_name].drop_table()
         self._TABLES = {}
+
+    async def table_from_api(
+        self,
+        api_data_fetcher: DomotzAPIDataFetcher,
+        table_name: str,
+        path_params: dict = {},
+    ):
+        api_res = await api_data_fetcher.get(table_name, path_params=path_params)
+        ch_table = self.get_table(table_name)
+        await ch_table.create_table(api_res.data)
+        await ch_table.insert_data(api_res.data)
+        await ch_table.get_data()
+        return ch_table, api_res.data
