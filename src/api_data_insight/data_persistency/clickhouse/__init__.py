@@ -94,6 +94,7 @@ class ClickhouseDBTables:
         self.client = Client(host=host, port=port, database=self.database)
 
     async def reset_db(self):
+        logger.info("Resetting database %s", self.database)
         await self.client.execute(f"DROP DATABASE IF EXISTS {self.database}")
         await self.client.execute(f"CREATE DATABASE IF NOT EXISTS {self.database}")
         time.sleep(1)
