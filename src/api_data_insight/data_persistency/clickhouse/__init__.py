@@ -1,3 +1,5 @@
+import random
+import time
 from logging import getLogger
 from typing import Self
 
@@ -43,9 +45,11 @@ class ClickHouseTable:
 
     async def create_table(self, df: pl.DataFrame):
         if await self.table_exists():
-            logger.info("Table already exists. Skipping creation.")
+            logger.info(f"Table {self.table_name} already exists. Skipping creation.")
         else:
             await self.unsafe_create_table(df)
+        if self.init_df is None:
+            raise ValueError("Please create the table first.")
 
     async def unsafe_create_table(self, df: pl.DataFrame):
         self.init_df = df.clone()
@@ -84,8 +88,15 @@ class ClickhouseDBTables:
     _instance = None
     _TABLES: dict[str, ClickHouseTable] = {}
 
-    def __init__(self, host: str, port: int, database: str):
-        self.client = Client(host=host, port=port, database=database)
+    def __init__(self, host: str, port: int):
+        self.database = f"api-insight{random.randint(0, 10000000)}"
+
+        self.client = Client(host=host, port=port, database=self.database)
+
+    async def reset_db(self):
+        await self.client.execute(f"DROP DATABASE IF EXISTS {self.database}")
+        await self.client.execute(f"CREATE DATABASE IF NOT EXISTS {self.database}")
+        time.sleep(1)
 
     @classmethod
     def get_instance(cls, *args, **kwargs) -> Self:
