@@ -75,6 +75,15 @@ class ResourcePath(ft.UserControl):
 
 
 class APISettingAPP(ft.UserControl):
+    def __init__(self):
+        super().__init__()
+        self.default_resource_options = ["Option 1", "Option 2", "Option 3"]
+        self.dropdown = ft.Dropdown(
+            value=self.default_resource_options[0],
+            options=[ft.dropdown.Option(opt) for opt in self.default_resource_options],
+            on_change=self.dropdown_changed,
+        )
+
     def build(self):
         # Add a TextField for the base API address
         self.api_address = ft.TextField(hint_text="Base API Address", expand=True)
@@ -97,18 +106,23 @@ class APISettingAPP(ft.UserControl):
         self.items_left = ft.Text("0 items left")
 
         # Application's root control containing all other controls
-        return ft.Column(
+        title_panel = ft.Column(
             width=600,
             controls=[
                 ft.Row(
-                    [
+                    controls=[
                         ft.Text(
                             value="API Resources",
                             style=ft.TextThemeStyle.HEADLINE_MEDIUM,
                         )
                     ],
                     alignment=ft.MainAxisAlignment.CENTER,
-                ),
+                )
+            ],
+        )
+        right_panel = ft.Column(
+            width=600,
+            controls=[
                 ft.Row(
                     controls=[
                         self.api_address,  # Add base API address TextField
@@ -141,6 +155,37 @@ class APISettingAPP(ft.UserControl):
                 ),
             ],
         )
+
+        # Add the dropdown for selecting default resources
+        left_panel = ft.Column(width=600, controls=[self.dropdown])
+
+        # Combine the left panel (dropdown) and the main resource panel
+        main_layout = ft.Column(
+            width=600,
+            controls=[title_panel, ft.Row(controls=[left_panel, right_panel])],
+        )
+
+        return main_layout
+
+    async def dropdown_changed(self, e):
+        self.resources.controls.clear()
+        selected_option = e.control.value
+        # Logic to determine which resources to display based on the selected option
+        if selected_option == "Option 1":
+            default_resources = ["Resource 1", "Resource 2", "Resource 3"]
+        elif selected_option == "Option 2":
+            default_resources = ["Resource 4", "Resource 5", "Resource 6"]
+        else:  # Option 3 or any other option
+            default_resources = ["Resource 7", "Resource 8", "Resource 9"]
+
+        for resource_name in default_resources:
+            resource = ResourcePath(
+                resource_name,
+                self.resource_status_change,
+                self.resource_delete,
+            )
+            self.resources.controls.append(resource)
+        await self.update_async()
 
     async def add_clicked(self, e):
         if self.new_resource.value:
