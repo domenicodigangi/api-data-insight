@@ -1,17 +1,24 @@
 import random
+import re
 import time
 from logging import getLogger
 from typing import Self
 
+import clickhouse_driver
 import polars as pl
 from aioch import Client
-from api_fetcher import DomotzAPIDataFetcher
+from api_fetcher import APIDataFetcher
 
 logger = getLogger(__name__)
 
 
 class ClickHouseTable:
-    def __init__(self, table_name: str, client: Client, database: str = "default"):
+    def __init__(
+        self,
+        table_name: str,
+        client: Client,
+        database: str = "default",
+    ):
         self.table_name = table_name
         self.client = client
         self.database = database
@@ -89,15 +96,24 @@ class ClickhouseDBTables:
     _TABLES: dict[str, ClickHouseTable] = {}
 
     def __init__(self, host: str, port: int):
-        self.database = f"api-insight{random.randint(0, 10000000)}"
+        self.database = f"api_insight{random.randint(0, 10000000)}"
+        self._host = host
+        self._port = port
+        self.client, self.sync_client = self.get_clients(self.database)
 
-        self.client = Client(host=host, port=port, database=self.database)
+    def get_clients(self, database: str):
+        client = Client(host=self._host, port=self._port, database=database)
+        sync_client = clickhouse_driver.Client(
+            host=self._host, port=self._port, database=database
+        )
+        return client, sync_client
 
-    async def reset_db(self):
+    def reset_db(self):
         logger.info("Resetting database %s", self.database)
-        await self.client.execute(f"DROP DATABASE IF EXISTS {self.database}")
-        await self.client.execute(f"CREATE DATABASE IF NOT EXISTS {self.database}")
-        time.sleep(1)
+        _, sync_client = self.get_clients("default")
+        sync_client.execute(f"DROP DATABASE IF EXISTS {self.database}")
+
+        sync_client.execute(f"CREATE DATABASE {self.database}")
 
     @classmethod
     def get_instance(cls, *args, **kwargs) -> Self:
@@ -107,7 +123,9 @@ class ClickhouseDBTables:
 
     def get_table(self, table_name: str) -> ClickHouseTable:
         if table_name not in self._TABLES:
-            self._TABLES[table_name] = ClickHouseTable(table_name, self.client)
+            self._TABLES[table_name] = ClickHouseTable(
+                table_name, self.client, self.database
+            )
         return self._TABLES[table_name]
 
     async def drop_all_tables(self):
@@ -117,7 +135,7 @@ class ClickhouseDBTables:
 
     async def table_from_api(
         self,
-        api_data_fetcher: DomotzAPIDataFetcher,
+        api_data_fetcher: APIDataFetcher,
         table_name: str,
         path_params: dict = {},
     ):
