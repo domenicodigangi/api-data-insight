@@ -1,6 +1,6 @@
 [submodule "submodules/api-fetcher"]
 	path = submodules/api-fetcher
-	url = git@github.com:domenicodigangi/api-fetcher.git
+	url = https://github.com/domenicodigangi/api-fetcher.git
 	branch = main
 [submodule "submodules/superset"]
 	path = submodules/superset
