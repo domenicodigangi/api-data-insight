@@ -36,6 +36,13 @@
                 "mhutchie.git-graph",
                 "rangav.vscode-thunder-client",
             ]
+        },
+        "codespaces": {
+            "repositories": {
+                "domenicodigangi/api-fetcher": {
+                    "permissions": "write-all"
+                }
+            }
         }
     }
     // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
