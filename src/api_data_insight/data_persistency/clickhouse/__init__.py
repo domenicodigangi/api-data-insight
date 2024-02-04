@@ -1,6 +1,4 @@
 import random
-import re
-import time
 from logging import getLogger
 from typing import Self
 
@@ -138,10 +136,12 @@ class ClickhouseDBTables:
         api_data_fetcher: APIDataFetcher,
         table_name: str,
         path_params: dict = {},
-    ):
+    ) -> tuple[ClickHouseTable, pl.DataFrame | None]:
         api_res = await api_data_fetcher.get(table_name, path_params=path_params)
         ch_table = self.get_table(table_name)
         await ch_table.create_table(api_res.data)
         await ch_table.insert_data(api_res.data)
         await ch_table.get_data()
         return ch_table, api_res.data
+    
+
